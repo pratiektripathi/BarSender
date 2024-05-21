@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # bar_sender
 
 Just a simple barcode sender app.
@@ -11,3 +12,7 @@ print barcode sticker with label printing weighing scale.
 stick to the product.
 scan to dispatch.
 for more info contact: <pratiektripathi@gmail.com>
+=======
+# BarSender
+barsender app
+>>>>>>> 6a3e66702e1eb75bfcbe3f4a4ea444ae749860c8
