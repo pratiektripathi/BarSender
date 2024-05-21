@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # bar_sender
 
 Just a simple barcode sender app.
@@ -15,4 +14,5 @@ for more info contact: <pratiektripathi@gmail.com>
 =======
 # BarSender
 barsender app
->>>>>>> 6a3e66702e1eb75bfcbe3f4a4ea444ae749860c8
+
+ONLY ANDROID
