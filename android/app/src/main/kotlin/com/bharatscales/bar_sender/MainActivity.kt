@@ -1,4 +1,4 @@
-package com.example.bar_sender
+package com.bharatscales.bar_sender
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,22 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-class ScanView extends StatelessWidget {
-  const ScanView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'BarSender',
-      theme: ThemeData(
-        primarySwatch: Colors.grey,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: const ScanScreen(),
-    );
-  }
-}
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -28,11 +14,14 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen> {
   List<BluetoothDevice> pairedDevicesList = [];
   bool? isBluetoothAvailable;
+  bool isRefreshing = false;
+  BluetoothDevice? selectedDevice;
 
   @override
   void initState() {
     super.initState();
     requestPermissions();
+    loadSelectedDevice();
   }
 
   Future<void> requestPermissions() async {
@@ -65,7 +54,7 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  void initBluetooth() async {
+  Future<void> initBluetooth() async {
     // Check if Bluetooth is available
     isBluetoothAvailable = await FlutterBluetoothSerial.instance.isAvailable;
 
@@ -81,12 +70,12 @@ class _ScanScreenState extends State<ScanScreen> {
     }
   }
 
-  void getBondedDevices() async {
+  Future<void> getBondedDevices() async {
     try {
       // Request for paired devices
       List<BluetoothDevice> devices = await FlutterBluetoothSerial.instance.getBondedDevices();
       setState(() {
-        pairedDevicesList = devices;
+        pairedDevicesList = devices.reversed.toList();
       });
     } catch (e) {
       // Handle the error
@@ -97,6 +86,36 @@ class _ScanScreenState extends State<ScanScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _refreshDevices() async {
+    setState(() {
+      isRefreshing = true;
+    });
+    await getBondedDevices();
+    setState(() {
+      isRefreshing = false;
+    });
+  }
+
+  Future<void> loadSelectedDevice() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? jsonDevice = prefs.getString('selected_device');
+    if (jsonDevice != null) {
+      setState(() {
+        selectedDevice = BluetoothDevice.fromMap(jsonDecode(jsonDevice));
+      });
+    }
+  }
+
+  Future<void> saveSelectedDevice(BluetoothDevice device) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    Map<String, dynamic> deviceMap = {
+      'name': device.name,
+      'address': device.address,
+    };
+    String jsonDevice = jsonEncode(deviceMap);
+    prefs.setString('selected_device', jsonDevice);
   }
 
   @override
@@ -120,32 +139,65 @@ class _ScanScreenState extends State<ScanScreen> {
         ),
       ),
       body: SafeArea(
-        child: Device(pairedDevicesList: pairedDevicesList),
+        child: RefreshIndicator(
+          onRefresh: _refreshDevices,
+          child: DeviceList(
+            pairedDevicesList: pairedDevicesList,
+            isRefreshing: isRefreshing,
+            selectedDevice: selectedDevice,
+            onSelect: (device) {
+              setState(() {
+                selectedDevice = device;
+              });
+              saveSelectedDevice(device);
+            },
+          ),
+        ),
       ),
     );
   }
 }
 
-class Device extends StatelessWidget {
+class DeviceList extends StatelessWidget {
   final List<BluetoothDevice> pairedDevicesList;
+  final bool isRefreshing;
+  final BluetoothDevice? selectedDevice;
+  final Function(BluetoothDevice) onSelect;
 
-  const Device({Key? key, required this.pairedDevicesList}) : super(key: key);
+  const DeviceList({
+    Key? key,
+    required this.pairedDevicesList,
+    required this.isRefreshing,
+    required this.selectedDevice,
+    required this.onSelect,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListView.builder(
-        itemBuilder: (context, index) {
-          var device = pairedDevicesList[index];
-          return Card(
-            child: ListTile(
-              title: Text(device.name?.isEmpty ?? true ? 'Unknown Device' : device.name!),
-              subtitle: Text(device.address),
+    return ListView.builder(
+      itemBuilder: (context, index) {
+        var device = pairedDevicesList[index];
+        bool isSelected = selectedDevice != null && selectedDevice!.address == device.address;
+        return Card(
+          color: isSelected ? Color.fromARGB(255, 42, 42, 42) : null,
+          child: ListTile(
+            leading: Icon(isSelected ? Icons.bluetooth_connected : Icons.bluetooth, color: isSelected ? Colors.white : Colors.black,),
+            title: Text(device.name?.isEmpty ?? true ? 'Unknown Device' : device.name!, style: 
+            TextStyle(
+                color: isSelected ? Colors.white : Colors.black,
+              ),
             ),
-          );
-        },
-        itemCount: pairedDevicesList.length,
-      ),
+            subtitle: Text(device.address,style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black,
+              ),
+            ),
+            onTap: () {
+              onSelect(device);
+            },
+          ),
+        );
+      },
+      itemCount: pairedDevicesList.length,
     );
   }
 }

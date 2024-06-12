@@ -1,37 +1,86 @@
-
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:bar_sender/services/pdf_generator.dart';
+import 'package:bar_sender/views/bluetoothHelpler.dart';
+import 'package:flutter/material.dart';
+import 'package:bar_sender/services/db_services.dart';
 import 'package:bar_sender/views/scan_view.dart';
 import 'package:bar_sender/views/setting_view.dart';
 import 'package:bar_sender/views/start_view.dart';
-import 'package:flutter/material.dart';
 
 
 
 
-class HomeView extends StatelessWidget {
-  const HomeView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'BarSender',
-      theme: ThemeData(
-        primarySwatch: Colors.grey,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: HomeScreen(),
-    );
-  }
-}
 
 class HomeScreen extends StatefulWidget {
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final listFinish=[["1586","Prateek Tripathi kanpur","Up23bg23"],["2","Ashish","UP77AT5202"],["3","Raman","UP77AT5202"]];
+  late Future<List<List<String>>> _listFinishFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBluetoothPermissionAndEnable();
+    _listFinishFuture = _fetchSlipData();
+  }
+  
+
+
+  Future<void> _checkBluetoothPermissionAndEnable() async {
+    bool bluetoothEnabled = await BluetoothHelper.ensureBluetoothIsEnabled();
+    if (!bluetoothEnabled) {
+      _showBluetoothDialog();
+    }
+  }
+
+  void _showBluetoothDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Bluetooth Required'),
+          content: const Text('Please enable Bluetooth to use the app features.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('OK'),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                _openBluetoothSettings();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+void _openBluetoothSettings() {
+  final intent = AndroidIntent(
+    action: 'android.settings.BLUETOOTH_SETTINGS',
+  );
+  intent.launch();
+}
+
+
+  Future<List<List<String>>> _fetchSlipData() async {
+    final data = await DbServices.instance.readSlipData();
+    return data
+        .map((map) =>
+            map.values.map((value) => value?.toString() ?? '').toList())
+        .toList();
+  }
+
+  Future<void> _refreshSlips() async {
+    setState(() {
+      _listFinishFuture = _fetchSlipData();
+    });
+  }
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,33 +100,39 @@ class _HomeScreenState extends State<HomeScreen> {
            _scaffoldKey.currentState?.openDrawer();
           },
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search),
-            onPressed: () {
-              // Implement search functionality
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.more_vert), // Three dots icon
-            onPressed: () {
-              // Implement menu functionality
-            },
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: Icon(Icons.search),
+        //     onPressed: () {
+            
+        //       // Implement search functionality
+        //     },
+        //   ),
+        //   IconButton(
+        //     icon: Icon(Icons.more_vert), // Three dots icon
+        //     onPressed: () {
+        //       // Implement menu functionality
+        //     },
+        //   ),
+        // ],
       ),
       drawer: Drawer(
-        backgroundColor: Color.fromARGB(255, 255, 255, 255),
+  backgroundColor: Color.fromARGB(255, 255, 255, 255),
+  child: SingleChildScrollView(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: MediaQuery.of(context).size.height,
+      ),
+      child: IntrinsicHeight(
         child: Column(
           children: [
-            SizedBox(height: 50,),
+            SizedBox(height: 50),
             Container(
-            width: 200,
-            height: 120,
+              width: 200,
+              height: 120,
               decoration: BoxDecoration(
-                image: DecorationImage(image: AssetImage("assets/logo.png"))
+                image: DecorationImage(image: AssetImage("assets/logo.png")),
               ),
-              
             ),
             ListTile(
               leading: Icon(Icons.home),
@@ -91,23 +146,18 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Text('Scanner'),
               onTap: () {
                 onTapScanner();
-                                
               },
             ),
             ListTile(
               leading: Icon(Icons.settings),
               title: Text('Settings'),
               onTap: () {
-
                 onTapSetting();
-              }
-
-                
+              },
             ),
             Spacer(),
             ListTile(
-              leading: Icon(Icons.support),
-              title: Text('help/support'),
+              title: Text('-Made with 😊 by pratiek 🚀',style: TextStyle(fontStyle: FontStyle.italic)),
               onTap: () {
                 // Handle Settings tap
               },
@@ -115,82 +165,146 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
-
-
+    ),
+  ),
+),
       body: SafeArea(
-        child: homepageListView()
+        child: FutureBuilder<List<List<String>>>(
+          future: _listFinishFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Center(child: Text('No data available'));
+            } else {
+              return RefreshIndicator(
+                onRefresh: _refreshSlips,
+                child: homepageListView(snapshot.data!),
+              );
+            }
+          },
         ),
-        floatingActionButton: FloatingActionButton.extended(
-        onPressed: updatelist,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _navStartview,
         icon: Icon(Icons.start_sharp, color: Colors.white),
-        label: Text('Start', style: TextStyle(color: Colors.white),
-        ),
+        label: Text('Start', style: TextStyle(color: Colors.white)),
         backgroundColor: Color.fromARGB(255, 40, 40, 40),
-        ),
-      );
-  }
-
-  ListView homepageListView() {
-    return ListView.builder(itemBuilder: (context, index){
-        int revindex=listFinish.length-1-index;
-        return Card(
-          child: ListTile(
-            leading: Column(
-              children: [
-                Text(
-                  "Slip No.",style: TextStyle(color: Color.fromARGB(255, 100, 100, 100),fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  listFinish[revindex][0],
-                  style: TextStyle(color:Color.fromARGB(255, 40, 40, 40),fontSize: 20,fontWeight: FontWeight.bold),
-                )
-          
-              ],
-          
-            ),
-            title: Text(listFinish[revindex][1],style: TextStyle(color:Color.fromARGB(255, 40, 40, 40),fontSize: 18,fontWeight: FontWeight.bold )),
-            subtitle: Text(listFinish[revindex][2]+" | "+listFinish[revindex][1],style: TextStyle(color:Color.fromARGB(255, 120, 120, 120 ),fontSize: 12,fontWeight: FontWeight.bold)),
-            ),
-       
-        );
-      },
-
-      itemCount: listFinish.length,
-
-      
-      );
-  }
-
- 
-
-  void updatelist(){
-    setState(() {});
-    {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) =>  StartScreen()),
-    
-  );
-}
-
-  }
-
-
-
- void onTapScanner() {
-    _scaffoldKey.currentState?.closeDrawer();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>  ScanScreen()),
-
+      ),
     );
   }
 
+  ListView homepageListView(List<List<String>> listFinish) {
+    return ListView.builder(
+      itemCount: listFinish.length,
+      itemBuilder: (context, index) {
+        int revindex = listFinish.length - 1 - index;
+        return Card(
+          child: ListTile(
+            onTap: (){openReport(int.parse(listFinish[revindex][0]),listFinish[revindex][1],listFinish[revindex][2],listFinish[revindex][3],listFinish[revindex][4],listFinish[revindex][5]);},
+            leading: Column(
+              children: [
+                const Text(
+                  "Slip No.",
+                  style: TextStyle(
+                    color: Color.fromARGB(255, 100, 100, 100),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  listFinish[revindex][0],
+                  style: const TextStyle(
+                    color: Color.fromARGB(255, 40, 40, 40),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            title: Text(
+              listFinish[revindex][1],
+              style: const TextStyle(
+                color: Color.fromARGB(255, 40, 40, 40),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle: Text(
+              listFinish[revindex][3] + " | " + listFinish[revindex][4],
+              style: TextStyle(
+                color: Color.fromARGB(255, 120, 120, 120),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
- void onTapSetting() {
+Future<void> openReport(final int slipNo,final String partyName,final String partyAddress, final String vehicleNo,final String date, final String time) async {
+
+  final tableData = await DbServices.instance.readBatchData(slipNo);
+
+
+  final data = tableData.asMap().entries.map((entry) {
+    final index = entry.key;
+    final map = entry.value;
+    final sublist = map.values.toList();
+    final extractedData = sublist.sublist(3, 7).map((value) => value?.toString() ?? '').toList();
+
+    // Calculate the serial number in increasing order
+    final serialNumber = (index + 1).toString();
+
+    // Insert the serial number as the first element
+    extractedData.insert(0, serialNumber);
+
+    return extractedData;
+  }).toList();
+
+  // Reverse the entire list
+  final reversedData = data.reversed.toList();
+
+  await PdfGenerator.toPdfGen(
+    context,
+    slipNo.toString(),
+    partyName,
+    partyAddress,
+    vehicleNo,
+    date,
+    time,
+    reversedData,
+  );
+
+
+}
+
+
+
+
+
+
+  void _navStartview() {
+    setState(() {});
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => StartScreen()),
+    );
+  }
+
+  void onTapScanner() {
+    _checkBluetoothPermissionAndEnable();
+    _scaffoldKey.currentState?.closeDrawer();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => ScanScreen()),
+    );
+  }
+
+  void onTapSetting() {
     _scaffoldKey.currentState?.closeDrawer();
     _showPasswordDialog(context);
-
   }
 
   Future<void> _showPasswordDialog(BuildContext context) async {
@@ -228,8 +342,6 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Text('Submit'),
               onPressed: () {
                 String password = passwordController.text;
-                // Perform password validation here
-                
                 _handlePasswordSubmission(context, password);
               },
             ),
@@ -240,29 +352,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handlePasswordSubmission(BuildContext context, String password) {
-    // Handle the password submission (e.g., authenticate user)
-    // For demonstration, just showing a snackbar
-    if (password=="4011") {
+    if (password == "4011") {
       Navigator.of(context).pop();
       Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>  SettingScreen()),
+        MaterialPageRoute(builder: (context) => SettingScreen()),
       );
-      
-    }else{
-      ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Incorrect Password, Try Again !')));
+    } else if (password == "delall"){
+    DbServices.instance.clearAllData();
       Navigator.of(context).pop();
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+
 
     }
+
     
-
+    
+    
+    else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Incorrect Password, Try Again!')),
+      );
+      Navigator.of(context).pop();
+    }
   }
-
-
-
-
-
 }
-
 
