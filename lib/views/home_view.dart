@@ -1,6 +1,9 @@
 import 'package:android_intent_plus/android_intent.dart';
+import 'package:bar_sender/fire/auth.dart';
 import 'package:bar_sender/services/pdf_generator.dart';
 import 'package:bar_sender/views/bluetoothHelpler.dart';
+import 'package:bar_sender/views/login_view.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:bar_sender/services/db_services.dart';
 import 'package:bar_sender/views/scan_view.dart';
@@ -79,6 +82,26 @@ void _openBluetoothSettings() {
     });
   }
 
+Future<void> _logout() async {
+
+
+
+    AuthService authService = AuthService();
+    try {
+      await authService.signOut();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => LoginScren()),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logout failed. Please try again.')),
+      );
+    }
+  }
+
+
+
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -135,6 +158,10 @@ void _openBluetoothSettings() {
               ),
             ),
             ListTile(
+              leading: Icon(Icons.account_circle),
+              title: Text(FirebaseAuth.instance.currentUser!.email.toString()),
+            ),
+            ListTile(
               leading: Icon(Icons.home),
               title: Text('Home'),
               onTap: () {
@@ -156,6 +183,15 @@ void _openBluetoothSettings() {
               },
             ),
             Spacer(),
+            ListTile(
+              leading: Icon(Icons.exit_to_app),
+              title: Text('Sign Out'),
+              onTap: () {
+                // Handle Sign Out tap;
+                _logout();
+
+              },
+            ),
             ListTile(
               title: Text('-Made with 😊 by pratiek 🚀',style: TextStyle(fontStyle: FontStyle.italic)),
               onTap: () {
