@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:bar_sender/services/db_services.dart';
 import 'package:bar_sender/services/pdf_generator.dart';
+import 'package:bar_sender/views/home_view.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
@@ -164,7 +165,7 @@ class _TableScreenState extends State<TableScreen> {
                 child: const Text('No'),
               ),
               TextButton(
-                onPressed: () => _backtoHome(),
+                onPressed: () => _backtoHome(context),
                 child: const Text('Yes'),
               ),
             ],
@@ -173,8 +174,15 @@ class _TableScreenState extends State<TableScreen> {
         false;
   }
 
-  _backtoHome() {
+void  _backtoHome(BuildContext context) {
+
     Navigator.of(context).pop(true);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => HomeScreen()),
+    );
+    
+    
   }
 
   @override

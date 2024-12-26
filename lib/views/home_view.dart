@@ -325,7 +325,7 @@ Future<void> openReport(final int slipNo,final String partyName,final String par
 
   void _navStartview() {
     setState(() {});
-    Navigator.of(context).push(
+    Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (context) => StartScreen()),
     );
   }
@@ -333,6 +333,7 @@ Future<void> openReport(final int slipNo,final String partyName,final String par
   void onTapScanner() {
     _checkBluetoothPermissionAndEnable();
     _scaffoldKey.currentState?.closeDrawer();
+    
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => ScanScreen()),
     );

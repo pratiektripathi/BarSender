@@ -1,5 +1,4 @@
 import 'package:bar_sender/fire/auth.dart';
-import 'package:bar_sender/views/home_view.dart';
 import 'package:flutter/material.dart';
 
 
